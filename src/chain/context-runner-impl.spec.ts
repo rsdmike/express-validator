@@ -12,8 +12,8 @@ let selectFields: jest.Mock;
 let contextRunner: ContextRunnerImpl;
 
 const instances: FieldInstance[] = [
-  { location: 'query', path: 'foo', originalPath: 'foo', value: 123, originalValue: 123 },
-  { location: 'query', path: 'bar', originalPath: 'bar', value: 456, originalValue: 456 },
+  { location: 'query', path: 'foo', originalPath: 'foo', pathValues: [], value: 123 },
+  { location: 'query', path: 'bar', originalPath: 'bar', pathValues: ['1'], value: 456 },
 ];
 
 // Used in value persistence tests
@@ -40,7 +40,7 @@ afterEach(() => {
 it('returns Result for current context', async () => {
   builder.addItem({
     async run(context, value, meta) {
-      context.addError('some error', value, meta);
+      context.addError({ type: 'field', value, meta });
     },
   });
   const result = await contextRunner.run({});
@@ -72,6 +72,7 @@ it('runs items on the stack with required data', async () => {
         req,
         location: instance.location,
         path: instance.path,
+        pathValues: instance.pathValues,
       });
     });
   });
@@ -79,13 +80,13 @@ it('runs items on the stack with required data', async () => {
 
 it('runs items on the stack in order', async () => {
   let item1Resolve = () => {};
-  const item1Promise = new Promise(resolve => {
+  const item1Promise = new Promise<void>(resolve => {
     item1Resolve = resolve;
   });
   const item1: ContextItem = { run: jest.fn().mockReturnValueOnce(item1Promise) };
 
   let item2Resolve = () => {};
-  const item2Promise = new Promise(resolve => {
+  const item2Promise = new Promise<void>(resolve => {
     item2Resolve = resolve;
   });
   const item2: ContextItem = { run: jest.fn().mockReturnValueOnce(item2Promise) };
@@ -113,6 +114,23 @@ it('runs items on the stack in order', async () => {
   return resultPromise;
 });
 
+it('does not run items if a previous context halts the whole request', async () => {
+  const context1 = new ContextBuilder().setRequestBail().build();
+  const context2 = new ContextBuilder().addItem({ run: jest.fn() }).build();
+
+  const req = {};
+  context1.addError({
+    type: 'field',
+    value: 1,
+    meta: { req, location: 'params', path: 'foo', pathValues: [] },
+  });
+
+  await new ContextRunnerImpl(context1, selectFields).run(req);
+  await new ContextRunnerImpl(context2, selectFields).run(req);
+
+  expect(context2.stack[0].run).not.toHaveBeenCalled();
+});
+
 it('stops running items on paths that got a validation halt', async () => {
   builder.addItem(
     {
@@ -132,6 +150,7 @@ it('stops running items on paths that got a validation halt', async () => {
     req,
     location: instances[1].location,
     path: instances[1].path,
+    pathValues: instances[1].pathValues,
   });
 });
 
@@ -161,16 +180,14 @@ describe('instance value persistence onto request', () => {
   });
 
   it('happens on instance path, if defined', async () => {
-    const req = { query: {} };
+    const req = { query: { foo: 123, bar: 456 } };
     await contextRunner.run(req);
     expect(req.query).toHaveProperty('foo', undefined);
     expect(req.query).toHaveProperty('bar', undefined);
   });
 
   it('happens on request location, if path empty', async () => {
-    selectFields.mockReturnValue([
-      { location: 'query', path: '', originalPath: '', value: 123, originalValue: 123 },
-    ]);
+    selectFields.mockReturnValue([{ location: 'query', path: '', originalPath: '', value: 123 }]);
 
     const req = { query: {} };
     await contextRunner.run(req);
@@ -178,9 +195,6 @@ describe('instance value persistence onto request', () => {
   });
 
   it('does not happen if value did not change', async () => {
-    selectFields.mockReturnValue([
-      { location: 'query', path: 'foo', originalPath: 'foo', value: '123', originalValue: 123 },
-    ]);
     const req = { query: {} };
     await contextRunner.run(req);
     expect(req.query).not.toHaveProperty('foo');

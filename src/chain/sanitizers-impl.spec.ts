@@ -1,9 +1,10 @@
 import * as validator from 'validator';
 import { Sanitization } from '../context-items/sanitization';
-import { Meta } from '../base';
+import { Meta, Request } from '../base';
 import { ContextBuilder } from '../context-builder';
 import { Sanitizers } from './sanitizers';
 import { SanitizersImpl } from './sanitizers-impl';
+import { ContextRunnerImpl } from './context-runner-impl';
 
 let chain: any;
 let builder: ContextBuilder;
@@ -17,7 +18,7 @@ beforeEach(() => {
   sanitizers = new SanitizersImpl(builder, chain);
 });
 
-it('has methods for all standard validators', () => {
+it('has methods for all standard sanitizers', () => {
   // Cast is here to workaround the lack of index signature
   const validatorModule = validator as any;
 
@@ -116,13 +117,13 @@ describe('#toArray()', () => {
       {
         location: 'body',
         path: 'foo',
+        pathValues: [],
         originalPath: 'foo',
         value: '',
-        originalValue: '',
       },
     ]);
 
-    const meta: Meta = { req: {}, location: 'body', path: 'foo' };
+    const meta: Meta = { req: {}, location: 'body', path: 'foo', pathValues: [] };
     const toArray = context.stack[0];
 
     await toArray.run(context, [], meta);
@@ -159,13 +160,13 @@ describe('#toLowerCase()', () => {
       {
         location: 'body',
         path: 'foo',
+        pathValues: [],
         originalPath: 'foo',
         value: '',
-        originalValue: '',
       },
     ]);
 
-    const meta: Meta = { req: {}, location: 'body', path: 'foo' };
+    const meta: Meta = { req: {}, location: 'body', path: 'foo', pathValues: [] };
     const toLowerCase = context.stack[0];
 
     await toLowerCase.run(context, '', meta);
@@ -203,13 +204,13 @@ describe('#toUpperCase()', () => {
       {
         location: 'body',
         path: 'foo',
+        pathValues: [],
         originalPath: 'foo',
         value: '',
-        originalValue: '',
       },
     ]);
 
-    const meta: Meta = { req: {}, location: 'body', path: 'foo' };
+    const meta: Meta = { req: {}, location: 'body', path: 'foo', pathValues: [] };
     const toUpperCase = context.stack[0];
 
     await toUpperCase.run(context, '', meta);
@@ -247,13 +248,13 @@ describe('#default()', () => {
       {
         location: 'body',
         path: 'foo',
+        pathValues: [],
         originalPath: 'foo',
         value: '',
-        originalValue: '',
       },
     ]);
 
-    const meta: Meta = { req: {}, location: 'body', path: 'foo' };
+    const meta: Meta = { req: {}, location: 'body', path: 'foo', pathValues: [] };
     const defaultSanitizer = context.stack[0];
 
     await defaultSanitizer.run(context, 'foo', meta);
@@ -274,6 +275,21 @@ describe('#default()', () => {
     await defaultSanitizer.run(context, NaN, meta);
     expect(context.getData()[0].value).toEqual(5);
   });
+
+  it('sanitizes to clone of the default object', async () => {
+    sanitizers.default({});
+    builder.setFields(['foo']);
+    builder.setLocations(['body']);
+
+    const runner = new ContextRunnerImpl(builder);
+
+    const req1: Request = { body: {} };
+    await runner.run(req1);
+
+    const req2: Request = { body: {} };
+    await runner.run(req2);
+    expect(req2.body.foo).not.toBe(req1.body.foo);
+  });
 });
 
 describe('#replace()', () => {
@@ -291,13 +307,13 @@ describe('#replace()', () => {
       {
         location: 'body',
         path: 'foo',
+        pathValues: [],
         originalPath: 'foo',
         value: '',
-        originalValue: '',
       },
     ]);
 
-    const meta: Meta = { req: {}, location: 'body', path: 'foo' };
+    const meta: Meta = { req: {}, location: 'body', path: 'foo', pathValues: [] };
     const replace = context.stack[0];
 
     await replace.run(context, '', meta);
@@ -326,13 +342,13 @@ describe('#replace()', () => {
       {
         location: 'body',
         path: 'foo',
+        pathValues: [],
         originalPath: 'foo',
         value: '',
-        originalValue: '',
       },
     ]);
 
-    const meta: Meta = { req: {}, location: 'body', path: 'foo' };
+    const meta: Meta = { req: {}, location: 'body', path: 'foo', pathValues: [] };
     const replace = context.stack[0];
 
     await replace.run(context, 'foo', meta);
@@ -364,13 +380,13 @@ describe('#replace()', () => {
       {
         location: 'body',
         path: 'foo',
+        pathValues: [],
         originalPath: 'foo',
         value: '',
-        originalValue: '',
       },
     ]);
 
-    const meta: Meta = { req: {}, location: 'body', path: 'foo' };
+    const meta: Meta = { req: {}, location: 'body', path: 'foo', pathValues: [] };
     const replace = context.stack[0];
 
     await replace.run(context, 'foo', meta);
@@ -381,5 +397,20 @@ describe('#replace()', () => {
 
     await replace.run(context, 100, meta);
     expect(context.getData()[0].value).toEqual(100);
+  });
+
+  it('sanitizes to clone of the replacement object', async () => {
+    sanitizers.replace(['bar'], {});
+    builder.setFields(['foo']);
+    builder.setLocations(['body']);
+
+    const runner = new ContextRunnerImpl(builder);
+
+    const req1: Request = { body: { foo: 'bar' } };
+    await runner.run(req1);
+
+    const req2: Request = { body: { foo: 'bar' } };
+    await runner.run(req2);
+    expect(req2.body.foo).not.toBe(req1.body.foo);
   });
 });

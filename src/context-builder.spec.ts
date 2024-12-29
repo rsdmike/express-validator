@@ -29,11 +29,41 @@ describe('#setMessage()', () => {
 
 describe('#setOptional()', () => {
   it('builds a Context with the given optional flag', () => {
-    let context = builder.setOptional({ checkFalsy: true, nullable: false }).build();
-    expect(context.optional).toEqual({ checkFalsy: true, nullable: false });
+    let context = builder.setOptional('falsy').build();
+    expect(context.optional).toEqual('falsy');
 
     context = builder.setOptional(false).build();
     expect(context.optional).toBe(false);
+  });
+});
+
+describe('#setRequestBail()', () => {
+  it('builders a Context with the bail flag set', () => {
+    let context = builder.build();
+    expect(context.bail).toBe(false);
+
+    context = builder.setRequestBail().build();
+    expect(context.bail).toBe(true);
+  });
+});
+
+describe('#setHidden()', () => {
+  it('builds a Context with the visibility set to visible', () => {
+    let context = builder.build();
+    expect(context.visibility).toEqual({ type: 'visible' });
+
+    context = builder.setHidden(true).setHidden(false).build();
+    expect(context.visibility).toEqual({ type: 'visible' });
+  });
+
+  it('builds a Context with the visibility set to hidden', () => {
+    const context = builder.setHidden(true).build();
+    expect(context.visibility).toEqual({ type: 'hidden' });
+  });
+
+  it('builds a Context with the visibility set to redacted', () => {
+    const context = builder.setHidden(true, 'hidden_value').build();
+    expect(context.visibility).toEqual({ type: 'redacted', value: 'hidden_value' });
   });
 });
 

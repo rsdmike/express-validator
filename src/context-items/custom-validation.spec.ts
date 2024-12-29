@@ -10,6 +10,7 @@ const meta: Meta = {
   req: { cookies: { foo: 'bar' } },
   location: 'cookies',
   path: 'foo',
+  pathValues: [],
 };
 
 beforeEach(() => {
@@ -25,7 +26,12 @@ const createSyncTest = (options: { returnValue: any; addsError: boolean }) => as
   validator.mockReturnValue(options.returnValue);
   await validation.run(context, 'bar', meta);
   if (options.addsError) {
-    expect(context.addError).toHaveBeenCalledWith(validation.message, 'bar', meta);
+    expect(context.addError).toHaveBeenCalledWith({
+      type: 'field',
+      message: validation.message,
+      value: 'bar',
+      meta,
+    });
   } else {
     expect(context.addError).not.toHaveBeenCalled();
   }
@@ -53,13 +59,23 @@ describe('when not negated', () => {
         throw new Error('boom');
       });
       await validation.run(context, 'bar', meta);
-      expect(context.addError).toHaveBeenCalledWith('nope', 'bar', meta);
+      expect(context.addError).toHaveBeenCalledWith({
+        type: 'field',
+        message: 'nope',
+        value: 'bar',
+        meta,
+      });
     });
 
     it('adds error with validation message if validator returns a promise that rejects', async () => {
       validator.mockRejectedValue('a bomb');
       await validation.run(context, 'bar', meta);
-      expect(context.addError).toHaveBeenCalledWith('nope', 'bar', meta);
+      expect(context.addError).toHaveBeenCalledWith({
+        type: 'field',
+        message: 'nope',
+        value: 'bar',
+        meta,
+      });
     });
   });
 
@@ -73,13 +89,23 @@ describe('when not negated', () => {
         throw new Error('boom');
       });
       await validation.run(context, 'bar', meta);
-      expect(context.addError).toHaveBeenCalledWith('boom', 'bar', meta);
+      expect(context.addError).toHaveBeenCalledWith({
+        type: 'field',
+        message: 'boom',
+        value: 'bar',
+        meta,
+      });
     });
 
     it('adds error with rejection message if validator returns a promise that rejects', async () => {
       validator.mockRejectedValue('a bomb');
       await validation.run(context, 'bar', meta);
-      expect(context.addError).toHaveBeenCalledWith('a bomb', 'bar', meta);
+      expect(context.addError).toHaveBeenCalledWith({
+        type: 'field',
+        message: 'a bomb',
+        value: 'bar',
+        meta,
+      });
     });
   });
 
@@ -123,6 +149,11 @@ describe('when negated', () => {
   it('adds error with validation message if validator returns a promise that resolves', async () => {
     validator.mockResolvedValue(true);
     await validation.run(context, 'bar', meta);
-    expect(context.addError).toHaveBeenCalledWith('nope', 'bar', meta);
+    expect(context.addError).toHaveBeenCalledWith({
+      type: 'field',
+      message: 'nope',
+      value: 'bar',
+      meta,
+    });
   });
 });
